@@ -19,6 +19,15 @@ public class Runner {
   //    NUMBER | '(' expr ')'     ( ( '*' | '/' )   NUMBER | '(' expr ')' ) *
 
     public static void main(String[] args) {
-
+        String expressionText = "22 + 3 - 2 * (2 * 5 + 2) * 4";
     }
+
+    public  enum LexemeType {
+        LEFT_BRACKET, RIGHT_BRACKET,
+        OP_PLUS, OP_MINUS,
+        OP_MUL, OP_DIV,
+        NUMBER,
+        EOF; // END OF FILAMENT - КОНЕЦ СТРОКИ (НИТИ, ВОЛОКНАБ ВОЛОСКА)
+    }
+
 }
