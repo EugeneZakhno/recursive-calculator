@@ -1,10 +1,12 @@
 package io.github.euegenezakhno;
 
+import io.github.euegenezakhno.calculator.WrongCharacterException;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class Runner {
-     /*------------------------------------------------------------------
+    /*------------------------------------------------------------------
      * PARSER RULES
      *------------------------------------------------------------------*/
 //    expr : plusminus* EOF ;
@@ -13,11 +15,12 @@ public class Runner {
 //    factor : NUMBER | '(' expr ')' ;  если компилятор встречает число или скобку, то выполняет действие первым, причем ижет скобки парные
 //    NUMBER | '(' expr ')'     ( ( '*' | '/' )   NUMBER | '(' expr ')' ) *
 
-    public static void main(String[] args) {
+    public static void main(String[] args)  {
         String expressionText = "22 + 3 - 2 * (2 * 5 + 2) * 4";
+        List <Lexeme> lexemes = lexAnalise(expressionText);
     }
 
-    public  enum LexemeType {
+    public enum LexemeType {
         LEFT_BRACKET,     //    (
         RIGHT_BRACKET,    //    )
         OP_PLUS,          //    +
@@ -38,20 +41,51 @@ public class Runner {
             this.type = type;
             this.value = value;
         }
+
         public Lexeme(LexemeType type, Character value) {
             this.type = type;
             this.value = value.toString();
         }
 
-        // Now lets write method for lexical analise
-        public static List<Lexeme> LexAnalise (String expText){
-            ArrayList<Lexeme> lexemes  = new ArrayList<>();
+        @Override
+        public String toString() {
+            return "Lexeme " +
+                    "type=" + type +
+                    ", value='" + value ;
+        }
+    }
+
+        public  static class LexemeBuffer{
+            private  int pos;
+            public List <Lexeme> lexemes;
+
+            public LexemeBuffer(List<Lexeme> lexemes) {
+                this.lexemes = lexemes;
+            }
+            public Lexeme next(){
+                return lexemes.get(pos++);
+            }
+
+            public void back(){
+                pos--;
+            }
+            public int getPos (){
+               return pos;
+            }
+        }
+
+
+
+        // Now lets write method for lexical analise.
+        // Read symbols, analise and adding into list.
+        public static List<Lexeme> lexAnalise(String expText) {
+            List<Lexeme> lexemes = new ArrayList<>();
             int pos = 0;
             while (pos < expText.length()) {
-                char c  = expText.charAt(pos);
+                char c = expText.charAt(pos);
                 switch (c) {
                     case '(':
-                        lexemes.add (new Lexeme(LexemeType.LEFT_BRACKET, c));
+                        lexemes.add(new Lexeme(LexemeType.LEFT_BRACKET, c));
                         pos++;
                         continue;
                     case ')':
@@ -76,24 +110,32 @@ public class Runner {
                         continue;
 
                     default:
-                        if (c <= '9' && c >= '0' ){
+                        if (c <= '9' && c >= '0') {
                             StringBuilder sb = new StringBuilder();
                             do {
                                 sb.append(c);
                                 pos++;
-                                if (pos >= expText.length()){
+                                if (pos >= expText.length()) {
                                     break;
                                 }
                                 c = expText.charAt(pos);
-                            } while (c<='9' && c>='0');
+                            } while (c <= '9' && c >= '0');
                             lexemes.add(new Lexeme(LexemeType.NUMBER, sb.toString()));
+                        } else {
+                            if (c != ' ') {
+                                try {
+                                    throw new WrongCharacterException("Unexpected character: " + c);
+                                } catch (WrongCharacterException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            pos++;
+                        }
+                }
             }
+            lexemes.add(new Lexeme(LexemeType.EOF, ""));
+            return lexemes;
         }
-
-
-    }
-
-
 
 
 }
