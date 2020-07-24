@@ -16,8 +16,10 @@ public class Runner {
 //    NUMBER | '(' expr ')'     ( ( '*' | '/' )   NUMBER | '(' expr ')' ) *
 
     public static void main(String[] args)  {
-        String expressionText = "22 + 3 - 2 * (2 * 5 + 2) * 4";
-        List <Lexeme> lexemes = lexAnalise(expressionText);
+        String expressionText = "122 - 34 - 4 * (55 + 5* (3 - 2)) * 2";
+        List<Lexeme> lexemes = lexAnalise(expressionText);
+        LexemeBuffer lexemeBuffer = new LexemeBuffer(lexemes);
+        System.out.println(expr(lexemeBuffer));
     }
 
     public enum LexemeType {
@@ -76,8 +78,9 @@ public class Runner {
 
 
 
-        // Now lets write method for lexical analise.
-        // Read symbols, analise and adding into list.
+        /** Now lets write method for lexical analise.
+         *  Read symbols, analise and adding into list.
+         */
         public static List<Lexeme> lexAnalise(String expText) {
             List<Lexeme> lexemes = new ArrayList<>();
             int pos = 0;
@@ -137,5 +140,78 @@ public class Runner {
             return lexemes;
         }
 
+    public static int expr(LexemeBuffer lexemes) {
+        Lexeme lexeme = lexemes.next();
+        if (lexeme.type == LexemeType.EOF) {
+            return 0;
+        } else {
+            lexemes.back();
+            return plusminus(lexemes);
+        }
+    }
 
+    public static int plusminus(LexemeBuffer lexemes) {
+        int value = multdiv(lexemes);
+        while (true) {
+            Lexeme lexeme = lexemes.next();
+            switch (lexeme.type) {
+                case OP_PLUS:
+                    value += multdiv(lexemes);
+                    break;
+                case OP_MINUS:
+                    value -= multdiv(lexemes);
+                    break;
+                case EOF:
+                case RIGHT_BRACKET:
+                    lexemes.back();
+                    return value;
+                default:
+                    throw new RuntimeException("Unexpected token: " + lexeme.value
+                            + " at position: " + lexemes.getPos());
+            }
+        }
+    }
+
+    public static int multdiv(LexemeBuffer lexemes) {
+        int value = factor(lexemes);
+        while (true) {
+            Lexeme lexeme = lexemes.next();
+            switch (lexeme.type) {
+                case OP_MUL:
+                    value *= factor(lexemes);
+                    break;
+                case OP_DIV:
+                    value /= factor(lexemes);
+                    break;
+                case EOF:
+                case RIGHT_BRACKET:
+                case OP_PLUS:
+                case OP_MINUS:
+                    lexemes.back();
+                    return value;
+                default:
+                    throw new RuntimeException("Unexpected token: " + lexeme.value
+                            + " at position: " + lexemes.getPos());
+            }
+        }
+    }
+
+    public static int factor(LexemeBuffer lexemes) {
+        Lexeme lexeme = lexemes.next();
+        switch (lexeme.type) {
+            case NUMBER:
+                return Integer.parseInt(lexeme.value);
+            case LEFT_BRACKET:
+                int value = plusminus(lexemes);
+                lexeme = lexemes.next();
+                if (lexeme.type != LexemeType.RIGHT_BRACKET) {
+                    throw new RuntimeException("Unexpected token: " + lexeme.value
+                            + " at position: " + lexemes.getPos());
+                }
+                return value;
+            default:
+                throw new RuntimeException("Unexpected token: " + lexeme.value
+                        + " at position: " + lexemes.getPos());
+        }
+    }
 }
