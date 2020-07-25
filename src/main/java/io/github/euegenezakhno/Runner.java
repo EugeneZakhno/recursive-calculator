@@ -1,8 +1,7 @@
 package io.github.euegenezakhno;
 
-import io.github.euegenezakhno.calculator.WrongCharacterException;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class Runner {
@@ -11,31 +10,70 @@ public class Runner {
      *------------------------------------------------------------------*/
 //    expr : plusminus* EOF ;
 //    plusminus: multdiv ( ( '+' | '-' ) multdiv )* ;
-//    multdiv : factor ( ( '*' | '/' ) factor )* ; если компилятор встречает умножение или деление, то выполняет действие после скобок вторым
-//    factor : NUMBER | '(' expr ')' ;  если компилятор встречает число или скобку, то выполняет действие первым, причем ижет скобки парные
-//    NUMBER | '(' expr ')'     ( ( '*' | '/' )   NUMBER | '(' expr ')' ) *
+//    multdiv : factor ( ( '*' | '/' ) factor )* ;
+//    factor : func | unary | NUMBER | '(' expr ')' ;
+//    unary : '-' factor
+//    func : NAME '(' (expr (',' expr)+)? ')'
 
-    public static void main(String[] args)  {
-        String expressionText = "122 - 34 - 4 * (55 + 5* (3 - 2)) * 2";
-        List<Lexeme> lexemes = lexAnalise(expressionText);
+    public static HashMap<String, Function> functionMap;
+
+    public static void main(String[] args) {
+        functionMap = getFunctionMap();
+
+        String expressionText = "122.1 - 34.69 - 3 * (55 + 5 * (3 - 2)) * 2.5";
+        List<Lexeme> lexemes = lexAnalyze(expressionText);
         LexemeBuffer lexemeBuffer = new LexemeBuffer(lexemes);
         System.out.println(expr(lexemeBuffer));
     }
 
     public enum LexemeType {
-        LEFT_BRACKET,     //    (
-        RIGHT_BRACKET,    //    )
-        OP_PLUS,          //    +
-        OP_MINUS,         //    -
-        OP_MUL,           //    *
-        OP_DIV,           //    /
-        NUMBER,           // ...  -11  -10  - 9 ...  0  1  2 3 4 5 6 7 8 9 10 11 12 ...
-        EOF;              //  END OF FILAMENT - КОНЕЦ СТРОКИ (НИТИ, ВОЛОКНАБ ВОЛОСКА)
+        LEFT_BRACKET, RIGHT_BRACKET,
+        OP_PLUS, OP_MINUS, OP_MUL, OP_DIV,
+        NUMBER, NAME, DOT,
+        EOF;
     }
 
-    // This class imagine lexemes, means how it's introduces in text.
-    public static class Lexeme {
+    public interface Function {
+        int apply(List<Integer> args);
+    }
 
+    public static HashMap<String, Function> getFunctionMap() {
+        HashMap<String, Function> functionTable = new HashMap<>();
+        functionTable.put("min", args -> {
+            if (args.isEmpty()) {
+                throw new RuntimeException("No arguments for function min");
+            }
+            int min = args.get(0);
+            for (Integer val: args) {
+                if (val < min) {
+                    min = val;
+                }
+            }
+            return min;
+        });
+        functionTable.put("pow", args -> {
+            if (args.size() != 2) {
+                throw new RuntimeException("Wrong argument count for function pow: " + args.size());
+            }
+            return (int) Math.pow(args.get(0), args.get(1));
+        });
+        functionTable.put("rand", args -> {
+            if (!args.isEmpty()) {
+                throw new RuntimeException("Wrong argument count for function rand");
+            }
+            return (int)(Math.random() * 256f);
+        });
+        functionTable.put("avg", args -> {
+            int sum = 0;
+            for (int i = 0; i < args.size(); i++) {
+                sum += args.get(i);
+            }
+            return sum / args.size();
+        });
+        return functionTable;
+    }
+
+    public static class Lexeme {
         LexemeType type;
         String value;
 
@@ -51,94 +89,111 @@ public class Runner {
 
         @Override
         public String toString() {
-            return "Lexeme " +
+            return "Lexeme{" +
                     "type=" + type +
-                    ", value='" + value ;
+                    ", value='" + value + '\'' +
+                    '}';
         }
     }
 
-        public  static class LexemeBuffer{
-            private  int pos;
-            public List <Lexeme> lexemes;
+    public static class LexemeBuffer {
+        private int pos;
 
-            public LexemeBuffer(List<Lexeme> lexemes) {
-                this.lexemes = lexemes;
-            }
-            public Lexeme next(){
-                return lexemes.get(pos++);
-            }
+        public List<Lexeme> lexemes;
 
-            public void back(){
-                pos--;
-            }
-            public int getPos (){
-               return pos;
-            }
+        public LexemeBuffer(List<Lexeme> lexemes) {
+            this.lexemes = lexemes;
         }
 
+        public Lexeme next() {
+            return lexemes.get(pos++);
+        }
 
+        public void back() {
+            pos--;
+        }
 
-        /** Now lets write method for lexical analise.
-         *  Read symbols, analise and adding into list.
-         */
-        public static List<Lexeme> lexAnalise(String expText) {
-            List<Lexeme> lexemes = new ArrayList<>();
-            int pos = 0;
-            while (pos < expText.length()) {
-                char c = expText.charAt(pos);
-                switch (c) {
-                    case '(':
-                        lexemes.add(new Lexeme(LexemeType.LEFT_BRACKET, c));
-                        pos++;
-                        continue;
-                    case ')':
-                        lexemes.add(new Lexeme(LexemeType.RIGHT_BRACKET, c));
-                        pos++;
-                        continue;
-                    case '+':
-                        lexemes.add(new Lexeme(LexemeType.OP_PLUS, c));
-                        pos++;
-                        continue;
-                    case '-':
-                        lexemes.add(new Lexeme(LexemeType.OP_MINUS, c));
-                        pos++;
-                        continue;
-                    case '*':
-                        lexemes.add(new Lexeme(LexemeType.OP_MUL, c));
-                        pos++;
-                        continue;
-                    case '/':
-                        lexemes.add(new Lexeme(LexemeType.OP_DIV, c));
-                        pos++;
-                        continue;
+        public int getPos() {
+            return pos;
+        }
+    }
 
-                    default:
-                        if (c <= '9' && c >= '0') {
-                            StringBuilder sb = new StringBuilder();
-                            do {
-                                sb.append(c);
-                                pos++;
-                                if (pos >= expText.length()) {
-                                    break;
-                                }
-                                c = expText.charAt(pos);
-                            } while (c <= '9' && c >= '0');
-                            lexemes.add(new Lexeme(LexemeType.NUMBER, sb.toString()));
-                        } else {
-                            if (c != ' ') {
-                                try {
-                                    throw new WrongCharacterException("Unexpected character: " + c);
-                                } catch (WrongCharacterException e) {
-                                    e.printStackTrace();
+    public static List<Lexeme> lexAnalyze(String expText) {
+        ArrayList<Lexeme> lexemes = new ArrayList<>();
+        int pos = 0;
+        while (pos< expText.length()) {
+            char c = expText.charAt(pos);
+            switch (c) {
+                case '(':
+                    lexemes.add(new Lexeme(LexemeType.LEFT_BRACKET, c));
+                    pos++;
+                    continue;
+                case ')':
+                    lexemes.add(new Lexeme(LexemeType.RIGHT_BRACKET, c));
+                    pos++;
+                    continue;
+                case '+':
+                    lexemes.add(new Lexeme(LexemeType.OP_PLUS, c));
+                    pos++;
+                    continue;
+                case '-':
+                    lexemes.add(new Lexeme(LexemeType.OP_MINUS, c));
+                    pos++;
+                    continue;
+                case '*':
+                    lexemes.add(new Lexeme(LexemeType.OP_MUL, c));
+                    pos++;
+                    continue;
+                case '/':
+                    lexemes.add(new Lexeme(LexemeType.OP_DIV, c));
+                    pos++;
+                    continue;
+                case '.':
+                    lexemes.add(new Lexeme(LexemeType.DOT, c));
+                    pos++;
+                    continue;
+                default:
+                    if (c <= '9' && c >= '0') {
+                        StringBuilder sb = new StringBuilder();
+                        do {
+                            sb.append(c);
+                            pos++;
+                            if (pos >= expText.length()) {
+                                break;
+                            }
+                            c = expText.charAt(pos);
+                        } while (c <= '9' && c >= '0');
+                        lexemes.add(new Lexeme(LexemeType.NUMBER, sb.toString()));
+                    } else {
+                        if (c != ' ') {
+                            if (c >= 'a' && c <= 'z'
+                                    || c >= 'A' && c <= 'Z') {
+                                StringBuilder sb = new StringBuilder();
+                                do {
+                                    sb.append(c);
+                                    pos++;
+                                    if (pos >= expText.length()) {
+                                        break;
+                                    }
+                                    c = expText.charAt(pos);
+                                } while (c >= 'a' && c <= 'z'
+                                        || c >= 'A' && c <= 'Z');
+
+                                if (functionMap.containsKey(sb.toString())) {
+                                    lexemes.add(new Lexeme(LexemeType.NAME, sb.toString()));
+                                } else {
+                                    throw new RuntimeException("Unexpected character: " + c);
                                 }
                             }
+                        } else {
                             pos++;
                         }
-                }
+                    }
             }
-            lexemes.add(new Lexeme(LexemeType.EOF, ""));
-            return lexemes;
         }
+        lexemes.add(new Lexeme(LexemeType.EOF, ""));
+        return lexemes;
+    }
 
     public static int expr(LexemeBuffer lexemes) {
         Lexeme lexeme = lexemes.next();
@@ -163,6 +218,7 @@ public class Runner {
                     break;
                 case EOF:
                 case RIGHT_BRACKET:
+                case DOT:
                     lexemes.back();
                     return value;
                 default:
@@ -185,6 +241,7 @@ public class Runner {
                     break;
                 case EOF:
                 case RIGHT_BRACKET:
+                case DOT:
                 case OP_PLUS:
                 case OP_MINUS:
                     lexemes.back();
@@ -199,10 +256,16 @@ public class Runner {
     public static int factor(LexemeBuffer lexemes) {
         Lexeme lexeme = lexemes.next();
         switch (lexeme.type) {
+            case NAME:
+                lexemes.back();
+                return func(lexemes);
+            case OP_MINUS:
+                int value = factor(lexemes);
+                return -value;
             case NUMBER:
                 return Integer.parseInt(lexeme.value);
             case LEFT_BRACKET:
-                int value = plusminus(lexemes);
+                value = plusminus(lexemes);
                 lexeme = lexemes.next();
                 if (lexeme.type != LexemeType.RIGHT_BRACKET) {
                     throw new RuntimeException("Unexpected token: " + lexeme.value
@@ -214,4 +277,31 @@ public class Runner {
                         + " at position: " + lexemes.getPos());
         }
     }
+
+    public static int func(LexemeBuffer lexemeBuffer) {
+        String name = lexemeBuffer.next().value;
+        Lexeme lexeme = lexemeBuffer.next();
+
+        if (lexeme.type != LexemeType.LEFT_BRACKET) {
+            throw new RuntimeException("Wrong function call syntax at " + lexeme.value);
+        }
+
+        ArrayList<Integer> args = new ArrayList<>();
+
+        lexeme = lexemeBuffer.next();
+        if (lexeme.type != LexemeType.RIGHT_BRACKET) {
+            lexemeBuffer.back();
+            do {
+                args.add(expr(lexemeBuffer));
+                lexeme = lexemeBuffer.next();
+
+                if (lexeme.type != LexemeType.DOT && lexeme.type != LexemeType.RIGHT_BRACKET) {
+                    throw new RuntimeException("Wrong function call syntax at " + lexeme.value);
+                }
+
+            } while (lexeme.type == LexemeType.DOT);
+        }
+        return functionMap.get(name).apply(args);
+    }
+
 }
